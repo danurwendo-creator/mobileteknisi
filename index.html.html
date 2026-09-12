@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="id" class="dark h-full bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#050811">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>FTTT Field Tech Mobile Tracker</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- EXIF JS untuk membaca GPS Metadata Foto Evidence -->
+  <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            cyber: {
+              bg: '#050811',
+              card: '#0c1322',
+              border: '#1e293b',
+              accent: '#3b82f6',
+              glow: '#60a5fa',
+              success: '#10b981',
+              warning: '#f59e0b',
+              danger: '#ef4444'
+            }
+          },
+          boxShadow: {
+            'glow-blue': '0 0 25px -2px rgba(59, 130, 246, 0.45)',
+            'glow-emerald': '0 0 25px -2px rgba(16, 185, 129, 0.45)',
+            'glow-amber': '0 0 25px -2px rgba(245, 158, 11, 0.45)',
+            'glow-rose': '0 0 25px -2px rgba(239, 68, 68, 0.45)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #030712;
+      color: #f8fafc;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .glass-card {
+      background: rgba(12, 19, 34, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card-interactive {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card-interactive:active {
+      transform: scale(0.98);
+      background: rgba(30, 41, 59, 0.9);
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="h-full antialiased flex flex-col justify-center items-center bg-slate-950 p-0 sm:p-4 selection:bg-blue-500 selection:text-white">
+
+  <!-- APP CONTAINER (ADAPTIVE MOBILE FRAME) -->
+  <div class="w-full max-w-md h-full sm:h-[880px] bg-slate-950 sm:rounded-[44px] sm:border-[8px] sm:border-slate-800/90 shadow-2xl overflow-hidden relative flex flex-col">
+    
+    <!-- TOP STATUS BAR -->
+    <div class="px-6 pt-3 pb-2 flex justify-between items-center text-xs text-slate-400 font-mono bg-slate-950/90 backdrop-blur-md shrink-0 z-50 border-b border-slate-900">
+      <span id="system-time" class="font-semibold">09:41</span>
+      <div class="flex items-center gap-2">
+        <span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-sans font-bold">5G</span>
+        <i data-lucide="wifi" class="w-3.5 h-3.5 text-slate-300"></i>
+        <i data-lucide="battery-charging" class="w-4 h-4 text-emerald-400"></i>
+      </div>
+    </div>
+
+    <!-- APP HEADER -->
+    <header class="px-5 py-3.5 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/90 backdrop-blur-xl shrink-0 z-40">
+      <div class="flex items-center gap-3">
+        <div class="p-2.5 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl shadow-glow-blue text-white">
+          <i data-lucide="wrench" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+            FTTT Field App
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Cloud Live Sync Active"></span>
+          </h1>
+          <p class="text-[10px] text-slate-400 font-mono" id="tech-name-display">Teknisi: Unassigned</p>
+        </div>
+      </div>
+      <button onclick="toggleTicketListModal()" class="relative p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-slate-300 active:scale-95 transition shadow-sm">
+        <i data-lucide="bell" class="w-4 h-4"></i>
+        <span id="notification-badge" class="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white font-bold text-[9px] rounded-full flex items-center justify-center border-2 border-slate-950">0</span>
+      </button>
+    </header>
+
+    <!-- MAIN APP SCROLLABLE CONTENT -->
+    <main class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
+      
+      <!-- HEADER TIKET CARD -->
+      <div id="ticket-info-card" class="glass-card rounded-2xl p-4 space-y-3 relative overflow-hidden border-l-4 border-l-blue-500 shadow-xl">
+        <div class="flex justify-between items-start">
+          <div>
+            <span id="card-customer-badge" class="bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold px-2.5 py-0.5 rounded-md text-[10px] inline-flex items-center gap-1 shadow-glow-blue">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span> XLS
+            </span>
+            <h2 id="card-ticket-num" class="text-base font-extrabold font-mono text-white mt-1.5 tracking-tight">Memuat Data Tiket...</h2>
+          </div>
+          <span id="current-status-badge" class="bg-rose-500/10 text-rose-400 border border-rose-500/30 px-2.5 py-1 rounded-full text-[10px] font-semibold flex items-center gap-1.5 shadow-glow-rose">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span> Open Ticket
+          </span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
+          <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800/60">
+            <span class="text-slate-400 block text-[9px] uppercase tracking-wider font-semibold">Nama Teknisi</span>
+            <span id="card-tech-name" class="font-bold text-amber-400 font-sans text-[11px]">Unassigned</span>
+          </div>
+          <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800/60">
+            <span class="text-slate-400 block text-[9px] uppercase tracking-wider font-semibold">Cluster / Area</span>
+            <span id="card-cluster" class="font-bold text-slate-200 font-mono text-[11px]">-</span>
+          </div>
+        </div>
+
+        <div class="space-y-1.5 text-xs border-t border-slate-800/80 pt-2.5">
+          <div class="flex justify-between text-slate-400">
+            <span class="text-[11px] font-semibold uppercase tracking-wider">Link / Span Problem:</span>
+          </div>
+          <p id="card-route-case" class="text-slate-200 font-medium text-xs bg-slate-900/90 p-2.5 rounded-xl border border-slate-800/80 leading-relaxed font-mono">
+            Pilih tiket dari tombol notifikasi di kanan atas.
+          </p>
+        </div>
+      </div>
+
+      <!-- PROGRESS TRACKER STEPPER TITLE -->
+      <div class="flex justify-between items-center px-1">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <i data-lucide="list-checks" class="w-4 h-4 text-blue-400"></i> Field Milestones Tracker
+        </h3>
+        <span id="step-progress-text" class="text-[11px] font-mono text-blue-400 font-bold bg-blue-500/10 px-2.5 py-0.5 rounded-full border border-blue-500/20">Step 1 / 10</span>
+      </div>
+
+      <!-- STEPPER LIST CONTAINER -->
+      <div class="space-y-3 pb-8" id="milestones-container">
+        <!-- Dynamic Milestones injected by Javascript -->
+      </div>
+    </main>
+
+    <!-- FOOTER FLOATING ACTION BAR -->
+    <div class="p-4 bg-slate-900/90 backdrop-blur-xl border-t border-slate-800/80 shrink-0 z-40">
+      <button id="btn-next-action" onclick="handleNextStepTrigger()" class="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3.5 px-4 rounded-2xl text-xs transition shadow-glow-blue flex items-center justify-center gap-2 active:scale-95">
+        <i data-lucide="arrow-right-circle" class="w-4.5 h-4.5"></i>
+        <span id="btn-action-text">Respon / Claim Tiket Ini</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 1: STEP DYNAMIC FORM -->
+  <div id="modal-step-input" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md hidden flex items-end sm:items-center justify-center p-0 sm:p-4 z-[100]">
+    <div class="glass-card rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-700/80 max-h-[90vh] overflow-y-auto no-scrollbar">
+      <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+        <div>
+          <span id="modal-step-tag" class="text-[10px] font-bold text-blue-400 uppercase tracking-widest font-mono">STEP FORM</span>
+          <h3 id="modal-step-title" class="text-base font-bold text-white flex items-center gap-2">Detail Progress</h3>
+        </div>
+        <button onclick="closeStepModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="step-dynamic-form" onsubmit="saveStepData(event)" class="space-y-4 text-xs">
+        <div id="dynamic-form-fields" class="space-y-3"></div>
+
+        <div class="mt-6 flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeStepModal()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition">Batal</button>
+          <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl text-xs transition shadow-glow-blue flex items-center gap-1.5 active:scale-95">
+            <i data-lucide="cloud-upload" class="w-4 h-4"></i> Simpan & Sync Web
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: DAFTAR TIKET REAL-TIME FROM CLOUD -->
+  <div id="modal-ticket-list" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-4 z-[100]">
+    <div class="glass-card rounded-3xl w-full max-w-md p-5 shadow-2xl border border-slate-700/80">
+      <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="inbox" class="w-4 h-4 text-blue-400"></i> Daftar Tiket Broadcast Masuk
+        </h3>
+        <button onclick="toggleTicketListModal()" class="text-slate-400 hover:text-white p-1 rounded-lg transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div id="modal-ticket-items-container" class="space-y-2.5 max-h-80 overflow-y-auto no-scrollbar">
+        <p class="text-xs text-slate-500 text-center py-6">Memuat daftar tiket dari cloud database...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIREBASE INTEGRATION MODULE -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAhFyv1rbboT9Ji0rhmqa5dFQtPuJL-b14",
+      authDomain: "tracker-tt.firebaseapp.com",
+      databaseURL: "https://tracker-tt-default-rtdb.asia-southeast1.firebasedatabase.app/",
+      projectId: "tracker-tt",
+      storageBucket: "tracker-tt.firebasestorage.app",
+      messagingSenderId: "981495258865",
+      appId: "1:981495258865:web:13b82ebe8b7e370c30d350",
+      measurementId: "G-1Z8CH5D6TM"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const ticketsRef = ref(db, 'tickets');
+
+    // Listener Real-time Database
+    onValue(ticketsRef, (snapshot) => {
+      const data = snapshot.val();
+      window.cloudTickets = [];
+      if (data) {
+        Object.keys(data).forEach(key => {
+          window.cloudTickets.unshift({ firebaseKey: key, ...data[key] });
+        });
+      }
+
+      // Update Badge Notifikasi & Modal List
+      const badge = document.getElementById('notification-badge');
+      if (badge) badge.innerText = window.cloudTickets.length;
+      
+      renderCloudTicketListModal();
+
+      // Auto Select tiket pertama jika belum ada tiket terpilih
+      if (!window.activeTicketKey && window.cloudTickets.length > 0) {
+        selectCloudTicket(window.cloudTickets[0].firebaseKey);
+      } else if (window.activeTicketKey) {
+        // Refresh active ticket data jika ada update dari cloud
+        const refreshed = window.cloudTickets.find(t => t.firebaseKey === window.activeTicketKey);
+        if (refreshed) {
+          window.activeTicket = refreshed;
+          updateActiveTicketUI();
+        }
+      }
+    });
+
+    window.updateTicketToFirebase = function(key, fields) {
+      const itemRef = ref(db, `tickets/${key}`);
+      update(itemRef, fields);
+    };
+  </script>
+
+  <!-- MAIN APP LOGIC -->
+  <script>
+    function updateClock() {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('system-time').innerText = `${hours}:${minutes}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    const milestoneSteps = [
+      { id: 1, title: "Tiket Diterima", desc: "Acknowledge & Isi Identitas Teknisi", icon: "check-circle-2", reqForm: true, fields: ['techClaim'] },
+      { id: 2, title: "Teknisi Prepare", desc: "Persiapan alat OTDR, Splicer & Toolkits", icon: "box", reqForm: false },
+      { id: 3, title: "Menuju ke Lokasi Site", desc: "Deskripsikan site tujuan & estimasi ETA", icon: "navigation", reqForm: true, fields: ['siteName', 'etaMinutes'] },
+      { id: 4, title: "Team Tiba di Lokasi", desc: "Check-in koordinat GPS lokasi site/span", icon: "map-pin", reqForm: true, fields: ['gpsCheckin'] },
+      { id: 5, title: "Pengecekan OPM & OTDR", desc: "Upload evidence ukur redaman & titik cut", icon: "activity", reqForm: true, fields: ['opmLoss', 'otdrDistance', 'otdrFile'] },
+      { id: 6, title: "Update Progress Pengecekan", desc: "Catatan penelusuran fisik di lapangan", icon: "search", reqForm: true, fields: ['fieldProgressRemark'] },
+      { id: 7, title: "Informasi RCA (Penyebab Cut)", desc: "Klasifikasi Root Cause & Evidence Kerusakan", icon: "alert-triangle", reqForm: true, fields: ['rcaMatrix', 'rcaFile'] },
+      { id: 8, title: "Perbaikan & Estimasi Selesai", desc: "Splicing/kabel replacement & estimasi ETTR", icon: "wrench", reqForm: true, fields: ['repairEttr', 'repairFile'] },
+      { id: 9, title: "Pengukuran Pasca Perbaikan", desc: "Sertifikasi ulang redaman pasca splicing", icon: "shield-check", reqForm: true, fields: ['postLoss', 'postOtdrFile'] },
+      { id: 10, title: "Close Tiket", desc: "Pekerjaan selesai & rangkuman akhir", icon: "check-check", reqForm: true, fields: ['closingRemark'] }
+    ];
+
+    window.cloudTickets = [];
+    window.activeTicketKey = null;
+    window.activeTicket = null;
+    let currentStepIndex = 0;
+
+    function renderCloudTicketListModal() {
+      const container = document.getElementById('modal-ticket-items-container');
+      if (!container) return;
+
+      if (!window.cloudTickets || window.cloudTickets.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-500 text-center py-6 font-mono">Belum ada broadcast tiket di cloud.</p>`;
+        return;
+      }
+
+      container.innerHTML = '';
+      window.cloudTickets.forEach(t => {
+        let borderClr = "border-l-blue-500";
+        if (t.customer && t.customer.includes('IOH')) borderClr = "border-l-amber-500";
+        
+        let statusBadge = `<span class="text-[9px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded font-semibold">Open</span>`;
+        if (t.status === 'In Progress') statusBadge = `<span class="text-[9px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded font-semibold">In Progress</span>`;
+        if (t.status === 'Closed') statusBadge = `<span class="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-semibold">Closed</span>`;
+
+        const div = document.createElement('div');
+        div.onclick = () => selectCloudTicket(t.firebaseKey);
+        div.className = `glass-card-interactive p-3.5 rounded-2xl border-l-4 ${borderClr} cursor-pointer hover:bg-slate-800/80 transition`;
+        div.innerHTML = `
+          <div class="flex justify-between items-start">
+            <span class="font-mono text-xs font-bold text-white">${t.ticketNumbers}</span>
+            ${statusBadge}
+          </div>
+          <p class="text-[11px] text-slate-300 mt-1 truncate font-mono">${t.routeCase}</p>
+          <div class="flex justify-between items-center mt-2 text-[10px] text-slate-400 font-mono">
+            <span>Klaster: ${t.areaCluster || '-'}</span>
+            <span>${t.technicianName && t.technicianName !== '-' ? t.technicianName : 'Unassigned'}</span>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function selectCloudTicket(key) {
+      const found = window.cloudTickets.find(t => t.firebaseKey === key);
+      if (!found) return;
+
+      window.activeTicketKey = key;
+      window.activeTicket = found;
+
+      // Hitung step index berdasarkan logs
+      const logsCount = (found.timelyLogs || []).length;
+      currentStepIndex = Math.min(Math.max(0, logsCount - 1), 9);
+      if (found.status === 'Closed') currentStepIndex = 10;
+
+      updateActiveTicketUI();
+      document.getElementById('modal-ticket-list').classList.add('hidden');
+    }
+
+    function updateActiveTicketUI() {
+      const t = window.activeTicket;
+      if (!t) return;
+
+      document.getElementById('card-ticket-num').innerText = t.ticketNumbers || 'N/A';
+      document.getElementById('card-route-case').innerText = t.routeCase || '-';
+      document.getElementById('card-cluster').innerText = t.areaCluster || 'UNMAPPED';
+      
+      const techName = (t.technicianName && t.technicianName !== '-') ? t.technicianName : 'Unassigned';
+      document.getElementById('tech-name-display').innerText = `Teknisi: ${techName}`;
+      document.getElementById('card-tech-name').innerText = techName;
+
+      const custBadge = document.getElementById('card-customer-badge');
+      if (t.customer && t.customer.includes('IOH')) {
+        custBadge.className = "bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold px-2.5 py-0.5 rounded-md text-[10px] inline-flex items-center gap-1 shadow-glow-amber";
+        custBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> IOH`;
+      } else {
+        custBadge.className = "bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold px-2.5 py-0.5 rounded-md text-[10px] inline-flex items-center gap-1 shadow-glow-blue";
+        custBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span> XLS`;
+      }
+
+      const statusBadge = document.getElementById('current-status-badge');
+      if (t.status === 'Open') {
+        statusBadge.className = "bg-rose-500/10 text-rose-400 border border-rose-500/30 px-2.5 py-1 rounded-full text-[10px] font-semibold flex items-center gap-1.5 shadow-glow-rose";
+        statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span> Open Ticket`;
+      } else if (t.status === 'In Progress') {
+        statusBadge.className = "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 px-2.5 py-1 rounded-full text-[10px] font-semibold flex items-center gap-1.5 shadow-glow-blue";
+        statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span> In Progress`;
+      } else if (t.status === 'Closed') {
+        statusBadge.className = "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[10px] font-semibold flex items-center gap-1.5 shadow-glow-emerald";
+        statusBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Closed`;
+      }
+
+      renderMilestones();
+    }
+
+    function renderMilestones() {
+      const container = document.getElementById('milestones-container');
+      container.innerHTML = '';
+
+      const logs = (window.activeTicket && window.activeTicket.timelyLogs) ? window.activeTicket.timelyLogs : [];
+
+      milestoneSteps.forEach((step, idx) => {
+        const isDone = idx < currentStepIndex;
+        const isActive = idx === currentStepIndex;
+
+        let statusBg = "bg-slate-900/40 border-slate-800/80 text-slate-500 opacity-60";
+        let iconBg = "bg-slate-800 text-slate-500";
+        let badgeTag = `<span class="text-[9px] text-slate-500">Pending</span>`;
+
+        if (isDone) {
+          statusBg = "bg-emerald-950/20 border-emerald-500/30 text-slate-200 shadow-sm";
+          iconBg = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+          badgeTag = `<span class="text-[9px] font-bold text-emerald-400 flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Selesai</span>`;
+        } else if (isActive) {
+          statusBg = "bg-blue-950/30 border-blue-500/50 text-white shadow-glow-blue ring-1 ring-blue-500/30";
+          iconBg = "bg-blue-600 text-white shadow-md shadow-blue-500/40 animate-pulse";
+          badgeTag = `<span class="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping"></span> Active Step</span>`;
+        }
+
+        const logEntry = logs[idx];
+
+        const stepEl = document.createElement('div');
+        stepEl.className = `glass-card p-3.5 rounded-2xl border transition-all duration-300 relative ${statusBg}`;
+        stepEl.innerHTML = `
+          <div class="flex items-start gap-3">
+            <div class="p-2.5 rounded-xl shrink-0 ${iconBg}">
+              <i data-lucide="${step.icon}" class="w-4 h-4"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-center mb-0.5">
+                <h4 class="text-xs font-bold text-white truncate">${step.id}. ${step.title}</h4>
+                ${badgeTag}
+              </div>
+              <p class="text-[11px] text-slate-400 leading-snug">${step.desc}</p>
+              
+              ${logEntry ? `
+                <div class="mt-2.5 pt-2 border-t border-slate-800/80 text-[10px] font-mono text-emerald-300 flex items-start gap-1.5 bg-slate-900/60 p-2 rounded-lg">
+                  <i data-lucide="clock" class="w-3 h-3 text-emerald-400 shrink-0 mt-0.5"></i>
+                  <div>
+                    <span class="text-slate-400">[${logEntry.time}]</span> ${logEntry.text}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+        container.appendChild(stepEl);
+      });
+
+      document.getElementById('step-progress-text').innerText = `Step ${Math.min(currentStepIndex + 1, 10)} / 10`;
+      
+      const btnText = document.getElementById('btn-action-text');
+      const btnAction = document.getElementById('btn-next-action');
+      
+      if (currentStepIndex < 10) {
+        btnAction.disabled = false;
+        btnText.innerText = currentStepIndex === 0 ? `Respon & Claim Tiket Ini` : `Update: ${milestoneSteps[currentStepIndex].title}`;
+      } else {
+        btnText.innerText = `Tiket Telah Closed`;
+        btnAction.disabled = true;
+      }
+
+      lucide.createIcons();
+    }
+
+    function handleNextStepTrigger() {
+      if (!window.activeTicketKey) {
+        alert("Silakan pilih tiket dari tombol notifikasi terlebih dahulu!");
+        return;
+      }
+      const step = milestoneSteps[currentStepIndex];
+      if (!step) return;
+
+      if (step.reqForm) {
+        openStepModal(step);
+      } else {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+        const logs = [...(window.activeTicket.timelyLogs || [])];
+        logs.push({ time: timeStr, date: dateStr, text: `Status: ${step.title} di-update` });
+
+        if (window.updateTicketToFirebase) {
+          window.updateTicketToFirebase(window.activeTicketKey, { timelyLogs: logs });
+        }
+      }
+    }
+
+    function openStepModal(step) {
+      document.getElementById('modal-step-tag').innerText = `MILESTONE STEP ${step.id}`;
+      document.getElementById('modal-step-title').innerText = step.title;
+
+      const container = document.getElementById('dynamic-form-fields');
+      container.innerHTML = '';
+
+      step.fields.forEach(field => {
+        if (field === 'techClaim') {
+          container.innerHTML += `
+            <div class="space-y-3 bg-slate-900/80 p-3.5 rounded-xl border border-blue-500/30">
+              <p class="text-blue-400 font-bold text-xs">Isi Identitas Teknisi Penanggung Jawab:</p>
+              <div>
+                <label class="block text-slate-300 font-medium mb-1">Nama Teknisi / Tim Field</label>
+                <input type="text" id="input-tech-name" required placeholder="Contoh: Budi & Tim Field Operation" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500">
+              </div>
+              <div>
+                <label class="block text-slate-300 font-medium mb-1">Nomor Telepon / WhatsApp</label>
+                <input type="tel" id="input-tech-phone" required placeholder="Contoh: 081234567890" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500 font-mono">
+              </div>
+            </div>
+          `;
+        }
+        if (field === 'siteName') {
+          container.innerHTML += `
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Nama Site / Lokasi Tujuan</label>
+              <input type="text" id="input-site" required placeholder="Contoh: Site Gerem Raya / Span KM 12" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500">
+            </div>
+          `;
+        }
+        if (field === 'etaMinutes') {
+          container.innerHTML += `
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Estimasi Waktu Tempuh (ETA)</label>
+              <select id="input-eta" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500">
+                <option value="15 Menit">15 Menit</option>
+                <option value="30 Menit">30 Menit</option>
+                <option value="45 Menit" selected>45 Menit</option>
+                <option value="60 Menit">60 Menit</option>
+                <option value="90+ Menit">90+ Menit</option>
+              </select>
+            </div>
+          `;
+        }
+        if (field === 'gpsCheckin') {
+          container.innerHTML += `
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-2 text-center">
+              <i data-lucide="map-pin" class="w-8 h-8 text-emerald-400 mx-auto animate-bounce"></i>
+              <p class="text-slate-300 text-xs">Sistem akan otomatis mengambil koordinat GPS perangkat HP Anda.</p>
+              <input type="text" id="input-gps" readonly value="-6.8912, 107.6102" class="w-full bg-slate-950 border border-slate-800 text-center font-mono text-emerald-400 rounded-lg p-2 font-bold">
+            </div>
+          `;
+        }
+        if (field === 'opmLoss') {
+          container.innerHTML += `
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Hasil Ukur OPM / Loss (dB)</label>
+              <input type="text" id="input-opm" placeholder="e.g. -28.5 dBm" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500 font-mono">
+            </div>
+          `;
+        }
+        if (field === 'otdrDistance') {
+          container.innerHTML += `
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Estimasi Jarak Putus OTDR (KM)</label>
+              <input type="text" id="input-otdr" placeholder="e.g. 2.4 KM dari Joint Box 03" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500 font-mono">
+            </div>
+          `;
+        }
+        if (field === 'otdrFile' || field === 'rcaFile' || field === 'repairFile' || field === 'postOtdrFile') {
+          container.innerHTML += `
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Upload Evidence Foto (EXIF GPS)</label>
+              <input type="file" accept="image/*" class="w-full text-slate-400 bg-slate-900 border border-slate-700 rounded-xl p-1.5 text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-blue-600 file:text-white cursor-pointer">
+            </div>
+          `;
+        }
+        if (field === 'fieldProgressRemark') {
+          container.innerHTML += `
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Catatan Pengecekan Lapangan</label>
+              <textarea id="input-progress-remark" rows="3" placeholder="Deskripsikan kondisi fisik jalur/galian kabel saat ini..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500"></textarea>
+            </div>
+          `;
+        }
+        if (field === 'rcaMatrix') {
+          container.innerHTML += `
+            <div class="space-y-2 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              <span class="text-amber-400 font-semibold block text-[11px]">Klasifikasi RCA (Root Cause)</span>
+              <div>
+                <label class="text-[10px] text-slate-400 block">RCA 1 Category</label>
+                <select id="input-rca1" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white">
+                  <option value="VEHICULAR ACCIDENT">VEHICULAR ACCIDENT</option>
+                  <option value="GOVERNMENT PROJECT" selected>GOVERNMENT PROJECT</option>
+                  <option value="THEFT AND VANDALISM">THEFT AND VANDALISM</option>
+                  <option value="INDIVIDUAL CORE TROUBLE">INDIVIDUAL CORE TROUBLE</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] text-slate-400 block">RCA 2 Detail Specific Cause</label>
+                <select id="input-rca2" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white">
+                  <option value="ROAD WIDENING / TOLL / BRIDGE">ROAD WIDENING / TOLL / BRIDGE</option>
+                  <option value="PLN ACTIVITY">PLN ACTIVITY</option>
+                  <option value="HIT BY TRUCK">HIT BY TRUCK</option>
+                </select>
+              </div>
+            </div>
+          `;
+        }
+        if (field === 'repairEttr') {
+          container.innerHTML += `
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Estimasi Waktu Selesai Repair (ETTR)</label>
+              <input type="text" id="input-ettr" placeholder="e.g. 60 Menit (Splicing 24 Core)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500">
+            </div>
+          `;
+        }
+        if (field === 'postLoss') {
+          container.innerHTML += `
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Hasil Redaman Pasca Perbaikan (dB)</label>
+              <input type="text" id="input-post-loss" placeholder="e.g. Sinyal OK / Redaman 0.21 dB" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500 font-mono">
+            </div>
+          `;
+        }
+        if (field === 'closingRemark') {
+          container.innerHTML += `
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Catatan Ringkas Penutupan Tiket</label>
+              <textarea id="input-close-remark" rows="3" placeholder="Splicing selesai, joint box rapikan kembali, jalur normal." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-blue-500"></textarea>
+            </div>
+          `;
+        }
+      });
+
+      document.getElementById('modal-step-input').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeStepModal() {
+      document.getElementById('modal-step-input').classList.add('hidden');
+    }
+
+    function saveStepData(e) {
+      e.preventDefault();
+      const step = milestoneSteps[currentStepIndex];
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+      let logText = `Status: ${step.title} selesai`;
+      const updatePayload = {};
+      const logs = [...(window.activeTicket.timelyLogs || [])];
+
+      if (step.id === 1) {
+        const name = document.getElementById('input-tech-name').value.trim();
+        const phone = document.getElementById('input-tech-phone').value.trim();
+        updatePayload.technicianName = name;
+        updatePayload.technicianPhone = phone;
+        updatePayload.status = "In Progress";
+        logText = `Tiket Diterima oleh Teknisi: ${name} (No HP: ${phone})`;
+      } else if (step.id === 3) {
+        const site = document.getElementById('input-site').value;
+        const eta = document.getElementById('input-eta').value;
+        logText = `Menuju ke Site: ${site} (ETA: ${eta})`;
+      } else if (step.id === 4) {
+        logText = `Tim Tiba On-Site. GPS: -6.8912, 107.6102`;
+      } else if (step.id === 5) {
+        const opm = document.getElementById('input-opm')?.value || '-';
+        const otdr = document.getElementById('input-otdr')?.value || '-';
+        logText = `Pengecekan: Loss ${opm}, Cut distance ${otdr}`;
+      } else if (step.id === 6) {
+        const r = document.getElementById('input-progress-remark')?.value;
+        logText = `Progress: ${r}`;
+      } else if (step.id === 7) {
+        const r1 = document.getElementById('input-rca1')?.value;
+        const r2 = document.getElementById('input-rca2')?.value;
+        updatePayload.rca1 = r1;
+        updatePayload.rca2 = r2;
+        logText = `RCA Info: ${r1} -> ${r2}`;
+      } else if (step.id === 8) {
+        const ettr = document.getElementById('input-ettr')?.value;
+        logText = `Proses Repair/Splicing (ETTR: ${ettr})`;
+      } else if (step.id === 9) {
+        const loss = document.getElementById('input-post-loss')?.value;
+        logText = `Post Repair Measurement: ${loss}`;
+      } else if (step.id === 10) {
+        const close = document.getElementById('input-close-remark')?.value;
+        logText = `Tiket Closed oleh Teknisi. ${close}`;
+        updatePayload.status = "Closed";
+        updatePayload.closedAtTime = now.getTime();
+        updatePayload.closedAtFormatted = `${dateStr} ${timeStr}`;
+      }
+
+      logs.push({ time: timeStr, date: dateStr, text: logText });
+      updatePayload.timelyLogs = logs;
+
+      if (window.updateTicketToFirebase) {
+        window.updateTicketToFirebase(window.activeTicketKey, updatePayload);
+      }
+
+      closeStepModal();
+    }
+
+    function toggleTicketListModal() {
+      document.getElementById('modal-ticket-list').classList.toggle('hidden');
+    }
+
+    window.onload = () => {
+      lucide.createIcons();
+    };
+  </script>
+</body>
+</html>
